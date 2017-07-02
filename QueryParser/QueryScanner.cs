@@ -10,10 +10,17 @@ namespace QueryParser
         public int Column, Line;
         public int EscapeChars;
         public int TokenStart, TokenLength;
-
+        public string Input => _q;
 
         public int Position => _pos;
         public string CurrentToken => _q.Substring(TokenStart, TokenLength);
+
+        public override string ToString()
+        {
+            if (_pos == 0)
+                return _q;
+            return "..." + _q.Substring(_pos);
+        }
 
         public void Init(string q)
         {
@@ -79,7 +86,7 @@ namespace QueryParser
             TokenStart = _pos;
             _pos++;
             for (; _pos < _q.Length; _pos++)
-                if (char.IsLower(_q[_pos]) == false &&
+                if (char.IsLetterOrDigit(_q[_pos]) == false &&
                     _q[_pos] != '_')
                     break;
             TokenLength = _pos - TokenStart;
@@ -131,17 +138,33 @@ namespace QueryParser
             Column++;
             return true;
         }
+        
+        public bool TryPeek(char match, bool skipWhitespace = true)
+        {
+            if (SkipWhitespace(skipWhitespace) == false)
+                return false;
+
+
+            return _q[_pos] == match;
+        }
 
         public bool TryScan(string match, bool skipWhitespace = true)
         {
             if (SkipWhitespace(skipWhitespace) == false)
                 return false;
 
-            if (match.Length + _pos >= _q.Length)
+            if (match.Length + _pos > _q.Length)
                 return false;
 
             if (string.Compare(_q, _pos, match, 0, match.Length, StringComparison.OrdinalIgnoreCase) != 0)
                 return false;
+
+            if (_pos + match.Length < _q.Length)
+            {
+                if (char.IsLetterOrDigit(match[match.Length - 1]) &&
+                   char.IsLetterOrDigit(_q[_pos + match.Length]))
+                    return false;
+            }
 
             _pos += match.Length;
             Column += match.Length;
@@ -158,11 +181,18 @@ namespace QueryParser
 
             foreach (var match in matches)
             {
-                if (match.Length + _pos >= _q.Length)
+                if (match.Length + _pos > _q.Length)
                     continue;
 
                 if (string.Compare(_q, _pos, match, 0, match.Length, StringComparison.OrdinalIgnoreCase) != 0)
                     continue;
+
+                if (_pos + match.Length < _q.Length)
+                {
+                    if (char.IsLetterOrDigit(match[match.Length - 1]) &&
+                       char.IsLetterOrDigit(_q[_pos + match.Length]))
+                        continue;
+                }
 
                 _pos += match.Length;
                 Column += match.Length;
@@ -207,5 +237,9 @@ namespace QueryParser
             return false;
         }
 
+        public void Reset(int pos)
+        {
+            _pos= pos;
+        }
     }
 }

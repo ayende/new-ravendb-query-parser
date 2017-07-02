@@ -13,6 +13,7 @@
         And,
         AndNot,
         Or,
-        OrNot
+        OrNot,
+        Field
     }
 }

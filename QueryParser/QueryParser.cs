@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Newtonsoft.Json.Serialization;
 
 namespace QueryParser
 {
     public class QueryParser
     {
-        private static readonly string[] OperatorStartMatches = {"<", ">", ">=", "<=", "=", "==", "BETWEEN", "IN", "("};
+        private static readonly string[] OperatorStartMatches = {">=", "<=", "<", ">", "=", "==", "BETWEEN", "IN", "("};
         private static readonly string[] BinaryOperators = {"OR", "AND"};
         private static readonly string[] TrueFalse = {"true", "false"};
         private static readonly string[] OrderByOptions = {"ASC", "DESC", "ASCENDING", "DESCENDING"};
@@ -27,7 +28,10 @@ namespace QueryParser
 
         public Query Parse()
         {
-            var q = new Query();
+            var q = new Query
+            {
+                QueryText = Scanner.Input
+            };
             if (Scanner.TryScan("SELECT"))
                 q.Select = SelectClause();
 
@@ -57,7 +61,7 @@ namespace QueryParser
 
                 if (Scanner.TryScan(OrderByOptions, out var match))
                 {
-                    if (match == "desc" || match == "descending")
+                    if (match == "DESC" || match == "DESCENDING")
                         asc = false;
                 }
 
@@ -69,16 +73,34 @@ namespace QueryParser
             return orderBy;
         }
 
-        private List<ValueTuple<FieldToken, FieldToken>> SelectClause()
+        private List<(QueryExpression, FieldToken)> SelectClause()
         {
-            var select = new List<(FieldToken Field, FieldToken Id)>();
+            var select = new List<(QueryExpression Expr, FieldToken Id)>();
 
             do
             {
-                if (AliasField(out var field, out var alias) == false)
+                if (Field(out var field) == false)
                     ThrowParseException("Unable to get field for SELECT");
 
-                @select.Add((field, alias));
+                QueryExpression expr;
+                
+                if (Scanner.TryScan('('))
+                {
+                    if (Method(field, allowRawFields: true,op: out expr) == false)
+                        ThrowParseException("Expected method call");
+                }
+                else
+                {
+                    expr = new QueryExpression
+                    {
+                        Field = field,
+                        Type = OperatorType.Field
+                    };
+                }
+
+                Alias(out var alias);
+                
+                select.Add((expr, alias));
 
                 if (Scanner.TryScan(",") == false)
                     break;
@@ -103,14 +125,14 @@ namespace QueryParser
                     TokenStart = Scanner.TokenStart,
                     EscapeChars = Scanner.EscapeChars
                 };
-                
-                if(Scanner.TryScan(',') == false)
+
+                if (Scanner.TryScan(',') == false)
                     ThrowParseException("Expected COMMA in filtered FORM clause after source");
 
-                if(Expression(out var filter) == false)
+                if (Expression(out var filter) == false)
                     ThrowParseException("Expected filter in filtered FORM clause");
-                
-                if(Scanner.TryScan(')') == false)
+
+                if (Scanner.TryScan(')') == false)
                     ThrowParseException("Expected closing parenthesis in filtered FORM clause after filter");
 
                 return (field, filter, false);
@@ -120,20 +142,20 @@ namespace QueryParser
             {
                 if (!Scanner.Identifier() && !Scanner.String())
                     ThrowParseException("Expected FROM INDEX source");
-                
+
                 field = new FieldToken
                 {
                     TokenLength = Scanner.TokenLength,
                     TokenStart = Scanner.TokenStart,
                     EscapeChars = Scanner.EscapeChars
                 };
-                
+
                 return (field, null, false);
             }
-            
+
             if (!Scanner.Identifier() && !Scanner.String())
                 ThrowParseException("Expected FROM source");
-            
+
             field = new FieldToken
             {
                 TokenLength = Scanner.TokenLength,
@@ -144,14 +166,8 @@ namespace QueryParser
             return (field, null, false);
         }
 
-        private bool AliasField(out FieldToken field, out FieldToken alias)
+        private bool Alias(out FieldToken alias)
         {
-            if (Field(out field) == false)
-            {
-                alias = null;
-                return false;
-            }
-
             if (Scanner.TryScan("AS") == false)
             {
                 alias = null;
@@ -219,8 +235,8 @@ namespace QueryParser
             if (Scanner.TryScan(BinaryOperators, out var found) == false)
                 return true; // found simple
 
-            var negate = Scanner.TryScan("not");
-            var type = found == "or"
+            var negate = Scanner.TryScan("NOT");
+            var type = found == "OR"
                 ? (negate ? OperatorType.OrNot : OperatorType.Or)
                 : (negate ? OperatorType.AndNot : OperatorType.And);
 
@@ -302,35 +318,12 @@ namespace QueryParser
             switch (type)
             {
                 case OperatorType.Method:
-                    var args = new List<object>();
-                    do
-                    {
-                        if (Scanner.TryScan(')'))
-                            break;
-
-                        if (args.Count != 0)
-                            if (Scanner.TryScan(',') == false)
-                                ThrowParseException("parsing method expression, expected ','");
-
-                        if (Value(out var argVal))
-                            args.Add(argVal);
-                        else if (Expression(out var expr))
-                            args.Add(expr);
-                        else
-                            ThrowParseException("parsing method, expected an argument");
-                    } while (true);
-
-                    op = new QueryExpression
-                    {
-                        Field = field,
-                        Type = OperatorType.Method,
-                        Arguments = args
-                    };
-                    return true;
+                    return Method(field, allowRawFields: false, op: out op);
+                    
                 case OperatorType.Between:
                     if (Value(out var fst) == false)
                         ThrowParseException("parsing Between, expected value (1st)");
-                    if (Scanner.TryScan("and") == false)
+                    if (Scanner.TryScan("AND") == false)
                         ThrowParseException("parsing Between, expected AND");
                     if (Value(out var snd) == false)
                         ThrowParseException("parsing Between, expected value (2nd)");
@@ -391,6 +384,54 @@ namespace QueryParser
                     };
                     return true;
             }
+        }
+
+        private bool Method(FieldToken field, bool allowRawFields, out QueryExpression op)
+        {
+            var args = new List<object>();
+            do
+            {
+                if (Scanner.TryScan(')'))
+                    break;
+
+                if (args.Count != 0)
+                    if (Scanner.TryScan(',') == false)
+                        ThrowParseException("parsing method expression, expected ','");
+
+                if (Value(out var argVal))
+                {
+                    args.Add(argVal);
+                    continue;
+                }
+
+                if (allowRawFields && Field(out var fieldRef))
+                {
+                    if (Scanner.TryPeek(',') == false && Scanner.TryPeek(')') == false)
+                    {
+                        // this is not a simple field ref, let's parse as full expression
+
+                        Scanner.Reset(fieldRef.TokenStart);
+                    }
+                    else
+                    {
+                        args.Add(fieldRef);
+                        continue;
+                    }
+                }
+                
+                if (Expression(out var expr))
+                    args.Add(expr);
+                else
+                    ThrowParseException("parsing method, expected an argument");
+            } while (true);
+
+            op = new QueryExpression
+            {
+                Field = field,
+                Type = OperatorType.Method,
+                Arguments = args
+            };
+            return true;
         }
 
         private void ThrowParseException(string msg)
@@ -482,6 +523,7 @@ namespace QueryParser
             while (true)
             {
                 if (Scanner.Identifier() == false)
+                {
                     if (Scanner.String())
                     {
                         escapeChars += Scanner.EscapeChars;
@@ -491,13 +533,26 @@ namespace QueryParser
                         token = null;
                         return false;
                     }
+                }
                 if (tokenStart == -1)
                     tokenStart = Scanner.TokenStart;
                 tokenLength += Scanner.TokenLength;
 
-                if (Scanner.TryScan("[]"))
-                    tokenLength += 2;
-
+                if (Scanner.TryScan('['))
+                {
+                    switch (Scanner.TryNumber())
+                    {
+                        case NumberToken.Long:
+                        case null:
+                            if (Scanner.TryScan(']') == false)
+                                ThrowParseException("Expected to find closing ]");
+                            tokenLength = Scanner.Position - tokenStart;
+                            break;
+                        case NumberToken.Double:
+                            ThrowParseException("Array indexer must be integer, but got double");
+                            break;
+                    }
+                }
                 if (Scanner.TryScan('.') == false)
                     break;
 

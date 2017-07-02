@@ -73,6 +73,10 @@ namespace QueryParser
         {
             switch (Type)
             {
+                case OperatorType.Field:
+                    writer.Write(Extract(query, Field.TokenStart, Field.TokenLength, Field.EscapeChars));
+                    writer.Write(" ");
+                    break;
                 case OperatorType.Equal:
                 case OperatorType.LessThen:
                 case OperatorType.GreaterThen:
@@ -158,7 +162,11 @@ namespace QueryParser
                         {
                             qe.ToString(query, writer);
                         }
-                        else
+                        else if (arg is FieldToken field)
+                        {
+                            writer.Write(Extract(query, field.TokenStart, field.TokenLength, field.EscapeChars));
+                        }
+                        else 
                         {
                             var val = (ValueToken) arg;
                             writer.Write(Extract(query, val.TokenStart, val.TokenLength, val.EscapeChars));
@@ -173,6 +181,11 @@ namespace QueryParser
 
         public void ToJsonAst(string query, JsonWriter writer)
         {
+            if (Type == OperatorType.Field)
+            {
+                WriteValue(query, writer, Field.TokenStart, Field.TokenLength, Field.EscapeChars);
+                return;
+            }
             writer.WriteStartObject();
             writer.WritePropertyName("Type");
             writer.WriteValue(Type.ToString());
@@ -230,6 +243,13 @@ namespace QueryParser
                         if (arg is QueryExpression qe)
                         {
                             qe.ToJsonAst(query, writer);
+                        }
+                        else if(arg is FieldToken field)
+                        {
+                            writer.WriteStartObject();
+                            writer.WritePropertyName("Field");
+                            WriteValue(query, writer, field.TokenStart, field.TokenLength, field.EscapeChars);
+                            writer.WriteEndObject();
                         }
                         else
                         {

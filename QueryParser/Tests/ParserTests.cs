@@ -25,9 +25,8 @@ namespace QueryParser
         }
 
         [Theory]
-        [InlineData(" ? ", 1)]
-        [InlineData(" ?name ", 5)]
-        [InlineData(" ?", 1)]
+        [InlineData(" :name ", 5)]
+        [InlineData(":age ", 4)]
         public void CanParseParameter(string q, int len)
         {
             var parser = new QueryParser();

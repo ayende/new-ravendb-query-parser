@@ -6,12 +6,18 @@ namespace QueryParser
     {
         private static void Main(string[] args)
         {
-            var t = new ComplexQueries();
-            t.CanParseFullQueries(q: @"
-SELECT Age, Name as Username
-WHERE boost(Age > 15, 2) --AND State IN ('Active', 'Admin') AND LoggedIN BETWEEN 12 AND 48
-ORDER BY LastName
+            try
+            {
+                var t = new ComplexQueries();
+                t.CanParseFullQueries(q: @"
+FROM (Users, IsActive = true)
+WHERE Age BETWEEN 21 AND 30
+ORDER BY Age DESC, Name ASC
 ", json: "");
+            }
+            catch (Exception e) {
+                Console.WriteLine(e);
+            }
         }
     }
 }
