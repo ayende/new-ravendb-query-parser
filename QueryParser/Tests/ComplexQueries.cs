@@ -10,6 +10,7 @@ namespace QueryParser
     {
         [Theory]
         [InlineData("FROM Users", "{\"From\":{\"Index\":false,\"Source\":\"Users\"}}")]
+        [InlineData("FROM Users WHERE search(Name, 'oren')", "{\"From\":{\"Index\":false,\"Source\":\"Users\"},\"Where\":{\"Type\":\"Method\",\"Method\":\"search\",\"Arguments\":[{\"Field\":\"Name\"},\"oren'\"]}}")]
         [InlineData(@"FROM (Users, IsActive = null)
 GROUP BY Country
 WHERE Age BETWEEN 21 AND 30
@@ -41,6 +42,7 @@ ORDER BY LastName
             var output = new StringWriter();
             query.ToJsonAst(new JsonTextWriter(output));
             var actual = output.GetStringBuilder().ToString();
+            //Console.WriteLine(actual.Replace("\"", "\\\""));
             Assert.Equal(json, actual);
         }
     }

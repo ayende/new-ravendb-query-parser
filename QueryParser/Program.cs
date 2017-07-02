@@ -10,10 +10,7 @@ namespace QueryParser
             {
                 var t = new ComplexQueries();
                 t.CanParseFullQueries(q: @"
-FROM (Users, IsActive = null)
-GROUP BY Country
-WHERE Age BETWEEN 21 AND 30
-ORDER BY Age DESC, Name ASC
+FROM Users WHERE search(Name, 'oren')
 ", json: "");
             }
             catch (Exception e) {

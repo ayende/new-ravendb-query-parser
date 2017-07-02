@@ -105,7 +105,7 @@ namespace QueryParser
                 
                 if (Scanner.TryScan('('))
                 {
-                    if (Method(field, allowRawFields: true,op: out expr) == false)
+                    if (Method(field, op: out expr) == false)
                         ThrowParseException("Expected method call");
                 }
                 else
@@ -337,7 +337,7 @@ namespace QueryParser
             switch (type)
             {
                 case OperatorType.Method:
-                    return Method(field, allowRawFields: false, op: out op);
+                    return Method(field, op: out op);
                     
                 case OperatorType.Between:
                     if (Value(out var fst) == false)
@@ -405,7 +405,7 @@ namespace QueryParser
             }
         }
 
-        private bool Method(FieldToken field, bool allowRawFields, out QueryExpression op)
+        private bool Method(FieldToken field, out QueryExpression op)
         {
             var args = new List<object>();
             do
@@ -423,7 +423,7 @@ namespace QueryParser
                     continue;
                 }
 
-                if (allowRawFields && Field(out var fieldRef))
+                if (Field(out var fieldRef))
                 {
                     if (Scanner.TryPeek(',') == false && Scanner.TryPeek(')') == false)
                     {
