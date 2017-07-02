@@ -9,6 +9,7 @@ namespace QueryParser
         public (FieldToken From, QueryExpression Filter, bool Index) From;
         public List<(QueryExpression Expression, FieldToken Alias)> Select;
         public List<(FieldToken Field, bool Ascending)> OrderBy;
+        public List<FieldToken> GroupBy;
         public string QueryText;
 
         public void ToJsonAst(JsonWriter writer)
@@ -48,6 +49,18 @@ namespace QueryParser
                 From.Filter.ToJsonAst(QueryText, writer);
             }
             writer.WriteEndObject();
+
+            if (GroupBy != null)
+            {
+                writer.WritePropertyName("GroupBy");
+                writer.WriteStartArray();
+                foreach (var field in GroupBy)
+                {
+                    QueryExpression.WriteValue(QueryText, writer, field.TokenStart, field.TokenLength, field.EscapeChars);
+                }
+                writer.WriteEndArray();
+            }
+            
             if (Where != null)
             {
                 writer.WritePropertyName("Where");

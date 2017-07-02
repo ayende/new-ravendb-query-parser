@@ -37,6 +37,9 @@ namespace QueryParser
 
             q.From = FromClause();
 
+            if (Scanner.TryScan("GROUP BY"))
+                q.GroupBy = GroupBy();
+
             if (Scanner.TryScan("WHERE") && Expression(out q.Where) == false)
                 ThrowParseException("Unable to parse WHERE clause");
 
@@ -47,6 +50,22 @@ namespace QueryParser
                 ThrowParseException("Expected end of query");
 
             return q;
+        }
+
+        private List<FieldToken> GroupBy()
+        {
+            var fields = new List<FieldToken>();
+            do
+            {
+                if (Field(out var field) == false)
+                    ThrowParseException("Unable to get field for GROUP BY");
+
+                fields.Add(field);
+
+                if (Scanner.TryScan(",") == false)
+                    break;
+            } while (true);
+            return fields;
         }
 
         private List<ValueTuple<FieldToken, bool>> OrderBy()

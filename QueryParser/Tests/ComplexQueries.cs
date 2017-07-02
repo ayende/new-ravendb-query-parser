@@ -10,6 +10,10 @@ namespace QueryParser
     {
         [Theory]
         [InlineData("FROM Users", "{\"From\":{\"Index\":false,\"Source\":\"Users\"}}")]
+        [InlineData(@"FROM (Users, IsActive = true)
+GROUP BY Country
+WHERE Age BETWEEN 21 AND 30
+ORDER BY Age DESC, Name ASC","{\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":\"IsActive\"}},\"GroupBy\":[\"Country\"],\"Where\":{\"Type\":\"Between\",\"Field\":\"Age\",\"Min\":21,\"Max\":30},\"OrderBy\":[{\"Field\":\"Age\",\"Ascending\":false},{\"Field\":\"Name\",\"Ascending\":true}]}")]
         [InlineData("FROM (Users, IsActive = true)", "{\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":\"IsActive\"}}}")]
         [InlineData(@"SELECT Age FROM (Users, IsActive = true)","{\"Select\":[{\"Expression\":\"Age\"}],\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":\"IsActive\"}}}")]
         [InlineData(@"FROM (Users, IsActive = true)
