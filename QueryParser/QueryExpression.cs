@@ -21,6 +21,20 @@ namespace QueryParser
 
         [ThreadStatic] private static StringBuilder _tempBuffer;
 
+        internal static string Extract(string q, ValueToken val)
+        {
+            switch (val.Type)
+            {
+                case ValueTokenType.False:
+                    return "false";
+                case ValueTokenType.Null:
+                    return "null";
+                case ValueTokenType.True:
+                    return "true";
+            }
+            return Extract(q, val.TokenStart, val.TokenLength, val.EscapeChars);
+        }
+
         internal static string Extract(string q, int tokenStart, int tokenLength, int escapeChars)
         {
             if (escapeChars == 0)
@@ -104,7 +118,7 @@ namespace QueryParser
                             ThrowInvalidType(Type);
                             break;
                     }
-                    writer.Write(Extract(query, Value.TokenStart, Value.TokenLength, Value.EscapeChars));
+                    writer.Write(Extract(query, Value));
                     break;
                 case OperatorType.Between:
                     writer.Write(Extract(query, Field.TokenStart, Field.TokenLength, Field.EscapeChars));
@@ -121,7 +135,7 @@ namespace QueryParser
                         var value = Values[i];
                         if (i != 0)
                             writer.Write(", ");
-                        writer.Write(Extract(query, value.TokenStart, value.TokenLength, value.EscapeChars));
+                        writer.Write(Extract(query, value));
                     }
                     writer.Write(")");
                     break;
@@ -166,10 +180,10 @@ namespace QueryParser
                         {
                             writer.Write(Extract(query, field.TokenStart, field.TokenLength, field.EscapeChars));
                         }
-                        else 
+                        else
                         {
                             var val = (ValueToken) arg;
-                            writer.Write(Extract(query, val.TokenStart, val.TokenLength, val.EscapeChars));
+                            writer.Write(Extract(query, val));
                         }
                     }
                     writer.Write(")");
@@ -202,7 +216,7 @@ namespace QueryParser
                     switch (Value.Type)
                     {
                         case ValueTokenType.Null:
-                            writer.WriteValue((string)null);
+                            writer.WriteValue((string) null);
                             break;
                         case ValueTokenType.False:
                             writer.WriteValue(false);
@@ -215,17 +229,17 @@ namespace QueryParser
                                 Value.Type == ValueTokenType.String);
                             break;
                     }
-                    
+
                     break;
                 case OperatorType.Between:
                     writer.WritePropertyName("Field");
                     WriteValue(query, writer, Field.TokenStart, Field.TokenLength, Field.EscapeChars);
                     writer.WritePropertyName("Min");
-                    WriteValue(query, writer, First.TokenStart, First.TokenLength, First.EscapeChars, 
-                        First.Type == ValueTokenType.Double||First.Type==ValueTokenType.Long);
+                    WriteValue(query, writer, First.TokenStart, First.TokenLength, First.EscapeChars,
+                        First.Type == ValueTokenType.Double || First.Type == ValueTokenType.Long);
                     writer.WritePropertyName("Max");
-                    WriteValue(query, writer, Second.TokenStart, Second.TokenLength, Second.EscapeChars, 
-                        Second.Type == ValueTokenType.Double||Second.Type==ValueTokenType.Long);
+                    WriteValue(query, writer, Second.TokenStart, Second.TokenLength, Second.EscapeChars,
+                        Second.Type == ValueTokenType.Double || Second.Type == ValueTokenType.Long);
                     break;
                 case OperatorType.In:
                     writer.WritePropertyName("Field");
@@ -234,8 +248,8 @@ namespace QueryParser
                     writer.WriteStartArray();
                     foreach (var value in Values)
                     {
-                        WriteValue(query, writer, value.TokenStart, value.TokenLength, value.EscapeChars, 
-                            value.Type == ValueTokenType.Double||value.Type==ValueTokenType.Long);
+                        WriteValue(query, writer, value.TokenStart, value.TokenLength, value.EscapeChars,
+                            value.Type == ValueTokenType.Double || value.Type == ValueTokenType.Long);
                     }
                     writer.WriteEndArray();
                     break;
@@ -259,7 +273,7 @@ namespace QueryParser
                         {
                             qe.ToJsonAst(query, writer);
                         }
-                        else if(arg is FieldToken field)
+                        else if (arg is FieldToken field)
                         {
                             writer.WriteStartObject();
                             writer.WritePropertyName("Field");
@@ -269,8 +283,8 @@ namespace QueryParser
                         else
                         {
                             var val = (ValueToken) arg;
-                            WriteValue(query, writer, val.TokenStart, val.TokenLength, val.EscapeChars, 
-                                val.Type == ValueTokenType.Double||val.Type==ValueTokenType.Long);
+                            WriteValue(query, writer, val.TokenStart, val.TokenLength, val.EscapeChars,
+                                val.Type == ValueTokenType.Double || val.Type == ValueTokenType.Long);
                         }
                     }
                     writer.WriteEndArray();

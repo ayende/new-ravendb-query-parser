@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
+using System.IO;
 
 namespace QueryParser
 {
@@ -6,15 +8,23 @@ namespace QueryParser
     {
         private static void Main(string[] args)
         {
-            try
+            while (true)
             {
-                var t = new ComplexQueries();
-                t.CanParseFullQueries(q: @"
-FROM Users WHERE search(Name, 'oren')
-", json: "");
-            }
-            catch (Exception e) {
-                Console.WriteLine(e);
+                var read = Console.ReadLine();
+
+                var parser = new QueryParser();
+                parser.Init(read);
+
+                var query = parser.Parse();
+                var output = new StringWriter();
+                query.ToJsonAst(new JsonTextWriter(output)
+                {
+                    Formatting = Formatting.Indented
+                });
+                var actual = output.GetStringBuilder().ToString();
+                Console.WriteLine(actual);
+
+                Console.WriteLine(query.ToString());
             }
         }
     }

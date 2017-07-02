@@ -102,7 +102,7 @@ namespace QueryParser
                     ThrowParseException("Unable to get field for SELECT");
 
                 QueryExpression expr;
-                
+
                 if (Scanner.TryScan('('))
                 {
                     if (Method(field, op: out expr) == false)
@@ -118,7 +118,7 @@ namespace QueryParser
                 }
 
                 Alias(out var alias);
-                
+
                 select.Add((expr, alias));
 
                 if (Scanner.TryScan(",") == false)
@@ -261,15 +261,39 @@ namespace QueryParser
 
             _state = NextTokenOptions.Parenthesis;
 
-            if (Parenthesis(out var op2) == false)
+            if (Binary(out var right) == false)
                 ThrowParseException($"Failed to find second part of {type} expression");
 
+            switch (type)
+            {
+                case OperatorType.And:
+                case OperatorType.AndNot:
+                    switch (right.Type)
+                    {
+                        case OperatorType.AndNot:
+                        case OperatorType.OrNot:
+                        case OperatorType.Or:
+                        case OperatorType.And:
+
+                            right.Left = new QueryExpression
+                            {
+                                Left = op,
+                                Right = right.Left,
+                                Type = type
+                            };
+                            op = right;
+                            return true;
+                    }
+                    
+                    break;
+            }
             op = new QueryExpression
             {
                 Type = type,
                 Left = op,
-                Right = op2
+                Right = right
             };
+
             return true;
         }
 
@@ -338,7 +362,7 @@ namespace QueryParser
             {
                 case OperatorType.Method:
                     return Method(field, op: out op);
-                    
+
                 case OperatorType.Between:
                     if (Value(out var fst) == false)
                         ThrowParseException("parsing Between, expected value (1st)");
@@ -437,7 +461,7 @@ namespace QueryParser
                         continue;
                     }
                 }
-                
+
                 if (Expression(out var expr))
                     args.Add(expr);
                 else
