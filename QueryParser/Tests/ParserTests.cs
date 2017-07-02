@@ -21,7 +21,7 @@ namespace QueryParser
             parser.Init(q);
 
             FieldToken token;
-            Assert.True(parser.ParseField(out token));
+            Assert.True(parser.Field(out token));
         }
 
         [Theory]
@@ -33,7 +33,7 @@ namespace QueryParser
             var parser = new QueryParser();
             parser.Init(q);
 
-            Assert.True(parser.ParseParameter(out var start, out var length));
+            Assert.True(parser.Parameter(out var start, out var length));
             Assert.Equal(len, length);
         }
 

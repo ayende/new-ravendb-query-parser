@@ -14,7 +14,7 @@ namespace QueryParser
             var qs = new QueryScanner();
             qs.Init(q);
 
-            Assert.False(qs.TryIdentifier());
+            Assert.False(qs.Identifier());
         }
 
         [Theory]
@@ -26,7 +26,7 @@ namespace QueryParser
             var qs = new QueryScanner();
             qs.Init(q);
 
-            Assert.True(qs.TryIdentifier());
+            Assert.True(qs.Identifier());
             Assert.Equal(start, qs.TokenStart);
             Assert.Equal(len, qs.TokenLength);
         }
@@ -41,7 +41,7 @@ namespace QueryParser
             var qs = new QueryScanner();
             qs.Init(q);
 
-            Assert.True(qs.TryString());
+            Assert.True(qs.String());
             Assert.Equal(escape, qs.EscapeChars);
         }
 
@@ -72,8 +72,8 @@ namespace QueryParser
             var qs = new QueryScanner();
             qs.Init(q);
 
-            Assert.True(qs.TryIdentifier());
-            Assert.True(qs.TryIdentifier());
+            Assert.True(qs.Identifier());
+            Assert.True(qs.Identifier());
             Assert.Equal(start, qs.TokenStart);
             Assert.Equal(len, qs.TokenLength);
         }

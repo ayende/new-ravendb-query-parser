@@ -6,20 +6,17 @@ namespace QueryParser
 {
     public class QueryParser
     {
-        private static readonly char[] _operatorStartMatches = {'<', '>', '=', 'b', 'B', 'i', 'I', '('};
-        private static readonly string[] _binaryOperators = {"or", "and"};
+        private static readonly string[] OperatorStartMatches = {"<", ">", ">=", "<=", "=", "==", "BETWEEN", "IN", "("};
+        private static readonly string[] BinaryOperators = {"OR", "AND"};
+        private static readonly string[] TrueFalse = {"true", "false"};
+        private static readonly string[] OrderByOptions = {"ASC", "DESC", "ASCENDING", "DESCENDING"};
+
 
         private int _depth;
-        
-        private int _statePos;
         private NextTokenOptions _state = NextTokenOptions.Parenthesis;
 
-        private enum NextTokenOptions
-        {
-            Parenthesis,
-            BinaryOp
-        }
-        
+        private int _statePos;
+
         public QueryScanner Scanner = new QueryScanner();
 
         public void Init(string q)
@@ -28,9 +25,148 @@ namespace QueryParser
             Scanner.Init(q);
         }
 
-        public bool ParseParameter(out int tokenStart, out int tokenLength)
+        public Query Parse()
         {
-            if (Scanner.TryScan('?') == false)
+            var q = new Query();
+            if (Scanner.TryScan("SELECT"))
+                q.Select = SelectClause();
+
+            q.From = FromClause();
+
+            if (Scanner.TryScan("WHERE") && Expression(out q.Where) == false)
+                ThrowParseException("Unable to parse WHERE clause");
+
+            if (Scanner.TryScan("ORDER BY"))
+                q.OrderBy = OrderBy();
+
+            if (Scanner.NextToken())
+                ThrowParseException("Expected end of query");
+
+            return q;
+        }
+
+        private List<ValueTuple<FieldToken, bool>> OrderBy()
+        {
+            var orderBy = new List<(FieldToken Field, bool Ascending)>();
+            do
+            {
+                if (Field(out var field) == false)
+                    ThrowParseException("Unable to get field for ORDER BY");
+
+                var asc = true;
+
+                if (Scanner.TryScan(OrderByOptions, out var match))
+                {
+                    if (match == "desc" || match == "descending")
+                        asc = false;
+                }
+
+                orderBy.Add((field, asc));
+
+                if (Scanner.TryScan(",") == false)
+                    break;
+            } while (true);
+            return orderBy;
+        }
+
+        private List<ValueTuple<FieldToken, FieldToken>> SelectClause()
+        {
+            var select = new List<(FieldToken Field, FieldToken Id)>();
+
+            do
+            {
+                if (AliasField(out var field, out var alias) == false)
+                    ThrowParseException("Unable to get field for SELECT");
+
+                @select.Add((field, alias));
+
+                if (Scanner.TryScan(",") == false)
+                    break;
+            } while (true);
+            return @select;
+        }
+
+        private (FieldToken From, QueryExpression Filter, bool Index) FromClause()
+        {
+            if (Scanner.TryScan("FROM") == false)
+                ThrowParseException("Expected FROM clause");
+
+            FieldToken field;
+            if (Scanner.TryScan('(')) // FROM ( Collection, filter )
+            {
+                if (!Scanner.Identifier() && !Scanner.String())
+                    ThrowParseException("Expected FROM source");
+
+                field = new FieldToken
+                {
+                    TokenLength = Scanner.TokenLength,
+                    TokenStart = Scanner.TokenStart,
+                    EscapeChars = Scanner.EscapeChars
+                };
+                
+                if(Scanner.TryScan(',') == false)
+                    ThrowParseException("Expected COMMA in filtered FORM clause after source");
+
+                if(Expression(out var filter) == false)
+                    ThrowParseException("Expected filter in filtered FORM clause");
+                
+                if(Scanner.TryScan(')') == false)
+                    ThrowParseException("Expected closing parenthesis in filtered FORM clause after filter");
+
+                return (field, filter, false);
+            }
+
+            if (Scanner.TryScan("INDEX"))
+            {
+                if (!Scanner.Identifier() && !Scanner.String())
+                    ThrowParseException("Expected FROM INDEX source");
+                
+                field = new FieldToken
+                {
+                    TokenLength = Scanner.TokenLength,
+                    TokenStart = Scanner.TokenStart,
+                    EscapeChars = Scanner.EscapeChars
+                };
+                
+                return (field, null, false);
+            }
+            
+            if (!Scanner.Identifier() && !Scanner.String())
+                ThrowParseException("Expected FROM source");
+            
+            field = new FieldToken
+            {
+                TokenLength = Scanner.TokenLength,
+                TokenStart = Scanner.TokenStart,
+                EscapeChars = Scanner.EscapeChars
+            };
+
+            return (field, null, false);
+        }
+
+        private bool AliasField(out FieldToken field, out FieldToken alias)
+        {
+            if (Field(out field) == false)
+            {
+                alias = null;
+                return false;
+            }
+
+            if (Scanner.TryScan("AS") == false)
+            {
+                alias = null;
+                return true;
+            }
+
+            if (Field(out alias) == false)
+                ThrowParseException("Expected field alias after AS in SELECT");
+
+            return true;
+        }
+
+        internal bool Parameter(out int tokenStart, out int tokenLength)
+        {
+            if (Scanner.TryScan(':') == false)
             {
                 tokenStart = 0;
                 tokenLength = 0;
@@ -40,17 +176,17 @@ namespace QueryParser
             tokenStart = Scanner.TokenStart;
             tokenLength = 1;
 
-            if (Scanner.TryIdentifier(false))
-                tokenLength += Scanner.TokenLength;
+            if (Scanner.Identifier(false) == false)
+                ThrowParseException("Expected parameter name");
+
+            tokenLength += Scanner.TokenLength;
             return true;
         }
 
-        public bool Expression(out QueryExpression op)
+        internal bool Expression(out QueryExpression op)
         {
             if (++_depth > 128)
-            {
                 ThrowQueryException("Query is too complex, over 128 nested clauses are not allowed");
-            }
             if (Scanner.Position != _statePos)
             {
                 _statePos = Scanner.Position;
@@ -61,12 +197,12 @@ namespace QueryParser
             return result;
         }
 
-        public bool Binary(out QueryExpression op)
+        private bool Binary(out QueryExpression op)
         {
             switch (_state)
             {
                 case NextTokenOptions.Parenthesis:
-                    if(Parenthesis(out op) == false)
+                    if (Parenthesis(out op) == false)
                         return false;
                     break;
                 case NextTokenOptions.BinaryOp:
@@ -78,9 +214,9 @@ namespace QueryParser
                     op = null;
                     return false;
             }
-                
 
-            if (Scanner.TryScan(_binaryOperators, out var found) == false)
+
+            if (Scanner.TryScan(BinaryOperators, out var found) == false)
                 return true; // found simple
 
             var negate = Scanner.TryScan("not");
@@ -102,14 +238,14 @@ namespace QueryParser
             return true;
         }
 
-        public bool Parenthesis(out QueryExpression op)
+        private bool Parenthesis(out QueryExpression op)
         {
             if (Scanner.TryScan('(') == false)
             {
                 _state = NextTokenOptions.BinaryOp;
                 return Binary(out op);
             }
-            
+
             if (Expression(out op) == false)
                 return false;
 
@@ -118,53 +254,44 @@ namespace QueryParser
             return true;
         }
 
-        public bool Operator(out QueryExpression op)
+        private bool Operator(out QueryExpression op)
         {
-            if (ParseField(out var field) == false)
+            if (Field(out var field) == false)
             {
                 op = null;
                 return false;
             }
 
-            if (Scanner.TryScan(_operatorStartMatches, out var match) == false)
+            if (Scanner.TryScan(OperatorStartMatches, out var match) == false)
                 ThrowParseException("Invalid operator expected any of (In, Between, =, <, >, <=, >=)");
 
             OperatorType type;
 
             switch (match)
             {
-                case '<':
-                    type = Scanner.TryScan('=', false)
-                        ? OperatorType.LessThenEqual
-                        : OperatorType.LessThen;
+                case "<":
+                    type = OperatorType.LessThen;
                     break;
-                case '>':
-                    type = Scanner.TryScan('=', false)
-                        ? OperatorType.GreaterThenEqual
-                        : OperatorType.GreaterThen;
+                case ">":
+                    type = OperatorType.GreaterThen;
                     break;
-                case '=':
+                case "<=":
+                    type = OperatorType.LessThenEqual;
+                    break;
+                case ">=":
+                    type = OperatorType.GreaterThenEqual;
+                    break;
+                case "=":
+                case "==":
                     type = OperatorType.Equal;
                     break;
-                case 'B':
-                case 'b':
-                    if (Scanner.TryScan("etween", false) == false)
-                    {
-                        Scanner.Back(1);
-                        ThrowParseException("Invalid operator expected any of (In, Between, =, <, >, <=, >=)");
-                    }
+                case "BETWEEN":
                     type = OperatorType.Between;
                     break;
-                case 'i':
-                case 'I':
-                    if (Scanner.TryScan("n") == false)
-                    {
-                        Scanner.Back(1);
-                        ThrowParseException("Invalid operator expected any of (In, Between, =, <, >, <=, >=)");
-                    }
+                case "IN":
                     type = OperatorType.In;
                     break;
-                case '(':
+                case "(":
                     type = OperatorType.Method;
                     break;
                 default:
@@ -185,7 +312,7 @@ namespace QueryParser
                             if (Scanner.TryScan(',') == false)
                                 ThrowParseException("parsing method expression, expected ','");
 
-                        if (ParseValue(out var argVal))
+                        if (Value(out var argVal))
                             args.Add(argVal);
                         else if (Expression(out var expr))
                             args.Add(expr);
@@ -201,11 +328,11 @@ namespace QueryParser
                     };
                     return true;
                 case OperatorType.Between:
-                    if (ParseValue(out var fst) == false)
+                    if (Value(out var fst) == false)
                         ThrowParseException("parsing Between, expected value (1st)");
                     if (Scanner.TryScan("and") == false)
                         ThrowParseException("parsing Between, expected AND");
-                    if (ParseValue(out var snd) == false)
+                    if (Value(out var snd) == false)
                         ThrowParseException("parsing Between, expected value (2nd)");
 
                     if (fst.Type != snd.Type)
@@ -234,7 +361,7 @@ namespace QueryParser
                             if (Scanner.TryScan(',') == false)
                                 ThrowParseException("parsing In expression, expected ','");
 
-                        if (ParseValue(out var inVal) == false)
+                        if (Value(out var inVal) == false)
                             ThrowParseException("parsing In, expected a value");
 
                         if (list.Count > 0)
@@ -253,7 +380,7 @@ namespace QueryParser
 
                     return true;
                 default:
-                    if (ParseValue(out var val) == false)
+                    if (Value(out var val) == false)
                         ThrowParseException($"parsing {type} expression, expected a value");
 
                     op = new QueryExpression
@@ -298,12 +425,11 @@ namespace QueryParser
             throw new ParseException(sb.ToString());
         }
 
-        public bool ParseValue(out ValueToken val)
+        private bool Value(out ValueToken val)
         {
             var numberToken = Scanner.TryNumber();
             if (numberToken != null)
             {
-
                 val = new ValueToken
                 {
                     TokenStart = Scanner.TokenStart,
@@ -312,7 +438,7 @@ namespace QueryParser
                 };
                 return true;
             }
-            if (Scanner.TryString())
+            if (Scanner.String())
             {
                 val = new ValueToken
                 {
@@ -323,8 +449,18 @@ namespace QueryParser
                 };
                 return true;
             }
+            if (Scanner.TryScan(TrueFalse, out var match))
+            {
+                val = new ValueToken
+                {
+                    TokenStart = Scanner.TokenStart,
+                    TokenLength = Scanner.TokenLength,
+                    Type = match == "true" ? ValueTokenType.True : ValueTokenType.False,
+                };
+                return true;
+            }
             int tokenStart, tokenLength;
-            if (ParseParameter(out tokenStart, out tokenLength))
+            if (Parameter(out tokenStart, out tokenLength))
             {
                 val = new ValueToken
                 {
@@ -338,15 +474,15 @@ namespace QueryParser
             return false;
         }
 
-        public bool ParseField(out FieldToken token)
+        internal bool Field(out FieldToken token)
         {
             var tokenStart = -1;
             var tokenLength = 0;
             var escapeChars = 0;
             while (true)
             {
-                if (Scanner.TryIdentifier() == false)
-                    if (Scanner.TryString())
+                if (Scanner.Identifier() == false)
+                    if (Scanner.String())
                     {
                         escapeChars += Scanner.EscapeChars;
                     }
@@ -375,6 +511,12 @@ namespace QueryParser
                 TokenStart = tokenStart
             };
             return true;
+        }
+
+        private enum NextTokenOptions
+        {
+            Parenthesis,
+            BinaryOp
         }
 
         public class ParseException : Exception
