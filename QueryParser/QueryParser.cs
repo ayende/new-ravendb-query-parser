@@ -9,7 +9,7 @@ namespace QueryParser
     {
         private static readonly string[] OperatorStartMatches = {">=", "<=", "<", ">", "=", "==", "BETWEEN", "IN", "("};
         private static readonly string[] BinaryOperators = {"OR", "AND"};
-        private static readonly string[] TrueFalse = {"true", "false"};
+        private static readonly string[] StaticValues = {"true", "false", "null"};
         private static readonly string[] OrderByOptions = {"ASC", "DESC", "ASCENDING", "DESCENDING"};
 
 
@@ -509,14 +509,26 @@ namespace QueryParser
                 };
                 return true;
             }
-            if (Scanner.TryScan(TrueFalse, out var match))
+            if (Scanner.TryScan(StaticValues, out var match))
             {
                 val = new ValueToken
                 {
                     TokenStart = Scanner.TokenStart,
                     TokenLength = Scanner.TokenLength,
-                    Type = match == "true" ? ValueTokenType.True : ValueTokenType.False,
                 };
+                switch (match)
+                {
+                    case "true":
+                        val.Type = ValueTokenType.True;
+                        break;
+                    case "false":
+                        val.Type = ValueTokenType.False;
+                        break;
+                    case "null":
+                        val.Type = ValueTokenType.Null;
+                        break;
+                }
+
                 return true;
             }
             int tokenStart, tokenLength;

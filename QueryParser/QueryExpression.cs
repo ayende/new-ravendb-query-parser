@@ -199,8 +199,23 @@ namespace QueryParser
                     writer.WritePropertyName("Field");
                     WriteValue(query, writer, Field.TokenStart, Field.TokenLength, Field.EscapeChars);
                     writer.WritePropertyName("Value");
-                    WriteValue(query, writer, Value.TokenStart, Value.TokenLength, Value.EscapeChars,
-                        Value.Type == ValueTokenType.String);
+                    switch (Value.Type)
+                    {
+                        case ValueTokenType.Null:
+                            writer.WriteValue((string)null);
+                            break;
+                        case ValueTokenType.False:
+                            writer.WriteValue(false);
+                            break;
+                        case ValueTokenType.True:
+                            writer.WriteValue(true);
+                            break;
+                        default:
+                            WriteValue(query, writer, Value.TokenStart, Value.TokenLength, Value.EscapeChars,
+                                Value.Type == ValueTokenType.String);
+                            break;
+                    }
+                    
                     break;
                 case OperatorType.Between:
                     writer.WritePropertyName("Field");

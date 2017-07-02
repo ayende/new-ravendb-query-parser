@@ -122,6 +122,7 @@ Id             = {Letter}{Id Chars}*
                 | <Parameter>
                 | 'true'
                 | 'false'
+                | 'null'
                 
 <Parameter> ::= ':' ID
              

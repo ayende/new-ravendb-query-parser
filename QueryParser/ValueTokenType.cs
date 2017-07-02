@@ -7,6 +7,7 @@ namespace QueryParser
         Double,
         String,
         True,
-        False
+        False,
+        Null
     }
 }

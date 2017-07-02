@@ -115,3 +115,4 @@ temp
 /.idea
 .vscode
 /test/Tryouts/Databases/*
+/QueryParser/RavenDB Query.egt

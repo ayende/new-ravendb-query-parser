@@ -10,17 +10,21 @@ namespace QueryParser
     {
         [Theory]
         [InlineData("FROM Users", "{\"From\":{\"Index\":false,\"Source\":\"Users\"}}")]
+        [InlineData(@"FROM (Users, IsActive = null)
+GROUP BY Country
+WHERE Age BETWEEN 21 AND 30
+ORDER BY Age DESC, Name ASC","{\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":null}},\"GroupBy\":[\"Country\"],\"Where\":{\"Type\":\"Between\",\"Field\":\"Age\",\"Min\":21,\"Max\":30},\"OrderBy\":[{\"Field\":\"Age\",\"Ascending\":false},{\"Field\":\"Name\",\"Ascending\":true}]}")]
         [InlineData(@"FROM (Users, IsActive = true)
 GROUP BY Country
 WHERE Age BETWEEN 21 AND 30
-ORDER BY Age DESC, Name ASC","{\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":\"IsActive\"}},\"GroupBy\":[\"Country\"],\"Where\":{\"Type\":\"Between\",\"Field\":\"Age\",\"Min\":21,\"Max\":30},\"OrderBy\":[{\"Field\":\"Age\",\"Ascending\":false},{\"Field\":\"Name\",\"Ascending\":true}]}")]
-        [InlineData("FROM (Users, IsActive = true)", "{\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":\"IsActive\"}}}")]
-        [InlineData(@"SELECT Age FROM (Users, IsActive = true)","{\"Select\":[{\"Expression\":\"Age\"}],\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":\"IsActive\"}}}")]
+ORDER BY Age DESC, Name ASC","{\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":true}},\"GroupBy\":[\"Country\"],\"Where\":{\"Type\":\"Between\",\"Field\":\"Age\",\"Min\":21,\"Max\":30},\"OrderBy\":[{\"Field\":\"Age\",\"Ascending\":false},{\"Field\":\"Name\",\"Ascending\":true}]}")]
+        [InlineData("FROM (Users, IsActive =false)", "{\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":false}}}")]
+        [InlineData(@"SELECT Age FROM (Users, IsActive = true)","{\"Select\":[{\"Expression\":\"Age\"}],\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":true}}}")]
         [InlineData(@"FROM (Users, IsActive = true)
-WHERE Age BETWEEN 21 AND 30", "{\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":\"IsActive\"}},\"Where\":{\"Type\":\"Between\",\"Field\":\"Age\",\"Min\":21,\"Max\":30}}")]
+WHERE Age BETWEEN 21 AND 30", "{\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":true}},\"Where\":{\"Type\":\"Between\",\"Field\":\"Age\",\"Min\":21,\"Max\":30}}")]
         [InlineData(@"FROM (Users, IsActive = true)
 WHERE Age BETWEEN 21 AND 30
-ORDER BY Age DESC, Name ASC", "{\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":\"IsActive\"}},\"Where\":{\"Type\":\"Between\",\"Field\":\"Age\",\"Min\":21,\"Max\":30},\"OrderBy\":[{\"Field\":\"Age\",\"Ascending\":false},{\"Field\":\"Name\",\"Ascending\":true}]}")]
+ORDER BY Age DESC, Name ASC", "{\"From\":{\"Index\":false,\"Source\":\"Users\",\"Filter\":{\"Type\":\"Equal\",\"Field\":\"IsActive\",\"Value\":true}},\"Where\":{\"Type\":\"Between\",\"Field\":\"Age\",\"Min\":21,\"Max\":30},\"OrderBy\":[{\"Field\":\"Age\",\"Ascending\":false},{\"Field\":\"Name\",\"Ascending\":true}]}")]
         [InlineData(@"
 SELECT sum(Age), Name as Username
 FROM Users
