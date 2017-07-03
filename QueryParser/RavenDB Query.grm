@@ -36,7 +36,7 @@ Id             = {Letter}{Id Chars}*
 
 <Where> ::= 'WHERE' <Expression>
          
-<Order By> ::= 'ORDER BY' <Sorted Identifier>
+<Order By> ::= 'ORDER BY' <Sorted Identifier List>
 
 <Group> ::= 'GROUP BY' <Identifiers List>
 
@@ -126,6 +126,8 @@ Id             = {Letter}{Id Chars}*
                 
 <Parameter> ::= ':' ID
              
+<Sorted Identifier List> ::= <Sorted Identifier> ',' <Sorted Identifier List>
+                | <Sorted Identifier>
 
 <Sorted Identifier> ::= <Field> 'asc' 
                      | <Field> 'desc' 
