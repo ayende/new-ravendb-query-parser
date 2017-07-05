@@ -32,7 +32,10 @@ Id             = {Letter}{Id Chars}*
                | <From Or Group> <Order By>
                | <From Or Group>
                
-<Select> ::= 'SELECT' <Named Identifier List>
+<Select> ::=  'SELECT' <Named Identifier List> <With Select>
+          | 'SELECT' <Named Identifier List>
+          
+<With Select> ::= 'WITH' <Named Identifier List>
 
 <Where> ::= 'WHERE' <Expression> <Order By>
          |'WHERE' <Expression>
@@ -79,12 +82,11 @@ Id             = {Letter}{Id Chars}*
 <Method Args> ::= <Argument> ',' <Method Args>
              | <Argument>
              
-<Argument> ::= <Expression> 
-            | ID
+<Argument> ::= <Field>
+            | <Expression> 
             | IntegerLiteral
             | RealLiteral
-            | StringLiteral1
-            | StringLiteral2
+            
 
 <Between Expr> ::= <Field> BETWEEN IntegerLiteral AND IntegerLiteral 
                 | <Field> BETWEEN RealLiteral AND RealLiteral 
