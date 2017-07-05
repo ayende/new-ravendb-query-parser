@@ -27,14 +27,15 @@ Id             = {Letter}{Id Chars}*
 ! Rules
 ! =============================================================================
 
-<Query>       ::= <Select> <From Or Group> <Where> <Order By>
-               | <From Or Group> <Where> <Order By>
+<Query>       ::= <Select> <From Or Group> <Where> 
+               | <From Or Group> <Where>
                | <From Or Group> <Order By>
                | <From Or Group>
                
 <Select> ::= 'SELECT' <Named Identifier List>
 
-<Where> ::= 'WHERE' <Expression>
+<Where> ::= 'WHERE' <Expression> <Order By>
+         |'WHERE' <Expression>
          
 <Order By> ::= 'ORDER BY' <Sorted Identifier List>
 
@@ -51,7 +52,8 @@ Id             = {Letter}{Id Chars}*
 ! Expressions
 ! =============================================================================
 
-<From Source> ::= ID | StringLiteral1 | StringLiteral2 
+<From Source> ::= <Simple Field> 'AS' <Simple Field> 
+               | <Simple Field>
 
 <Expression>  ::=  <Or Expression>
 
