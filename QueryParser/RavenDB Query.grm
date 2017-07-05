@@ -47,7 +47,8 @@ Id             = {Letter}{Id Chars}*
 <From Or Group> ::= <From> <Group>
                  | <From> 
             
-<From> ::= 'FROM''('<From Source> ','  <Expression> ')' !filtered
+<From> ::= 'FROM''('<Simple Field> ','  <Expression> ')' !filtered
+        | 'FROM''('<Simple Field> ','  <Expression> ')' 'AS' <Simple Field>
         | 'FROM INDEX' <From Source>
         | 'FROM' <From Source>
                

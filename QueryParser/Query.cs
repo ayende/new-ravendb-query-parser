@@ -8,8 +8,9 @@ namespace QueryParser
     public class Query
     {
         public QueryExpression Where;
-        public (FieldToken From, QueryExpression Filter, bool Index) From;
+        public (FieldToken From, FieldToken Alias, QueryExpression Filter, bool Index) From;
         public List<(QueryExpression Expression, FieldToken Alias)> Select;
+        public List<(QueryExpression Expression, FieldToken Alias)> With;
         public List<(FieldToken Field, bool Ascending)> OrderBy;
         public List<FieldToken> GroupBy;
         public string QueryText;
@@ -19,21 +20,11 @@ namespace QueryParser
             var writer = new StringWriter();
             if(Select != null)
             {
-                writer.Write("SELECT ");
-                for (var index = 0; index < Select.Count; index++)
-                {
-                    if(index != 0)
-                        writer.Write(", ");
-                    var item = Select[index];
-                    item.Expression.ToString(QueryText, writer);
-                    if (item.Alias != null)
-                    {
-                        writer.Write(" AS ");
-                        writer.Write(QueryExpression.Extract(QueryText, item.Alias.TokenStart, item.Alias.TokenLength,
-                            item.Alias.EscapeChars));
-                    }
-                }
-                writer.WriteLine();
+                WriteSelectOrWith("SELECT", writer, Select);
+            }
+            if(With != null)
+            {
+                WriteSelectOrWith("WITH", writer, With);
             }
             writer.Write("FROM ");
             if (From.Index)
@@ -53,6 +44,13 @@ namespace QueryParser
             {
                 writer.Write(QueryExpression.Extract(QueryText, From.From.TokenStart, From.From.TokenLength, From.From.EscapeChars));
             }
+
+            if (From.Alias != null)
+            {
+                writer.Write(" AS ");
+                writer.Write(QueryExpression.Extract(QueryText, From.Alias.TokenStart, From.Alias.TokenLength, From.Alias.EscapeChars));
+            }
+            
             writer.WriteLine();
             if (GroupBy != null)
             {
@@ -89,29 +87,36 @@ namespace QueryParser
             return writer.GetStringBuilder().ToString();
         }
 
+        private void WriteSelectOrWith(string clause,StringWriter writer, List<(QueryExpression Expression, FieldToken Alias)> clauseItems)
+        {
+            writer.Write(clause);
+            writer.Write(" ");
+            for (var index = 0; index < clauseItems.Count; index++)
+            {
+                if (index != 0)
+                    writer.Write(", ");
+                var item = clauseItems[index];
+                item.Expression.ToString(QueryText, writer);
+                if (item.Alias != null)
+                {
+                    writer.Write("AS ");
+                    writer.Write(QueryExpression.Extract(QueryText, item.Alias.TokenStart, item.Alias.TokenLength,
+                        item.Alias.EscapeChars));
+                }
+            }
+            writer.WriteLine();
+        }
+
         public void ToJsonAst(JsonWriter writer)
         {
             writer.WriteStartObject();
             if (Select != null)
             {
-                writer.WritePropertyName("Select");
-                writer.WriteStartArray();
-
-                foreach (var field in Select)
-                {
-                    writer.WriteStartObject();
-                    writer.WritePropertyName("Expression");
-                    field.Expression.ToJsonAst(QueryText, writer);
-                    if (field.Alias != null)
-                    {
-                        writer.WritePropertyName("Alias");
-                        QueryExpression.WriteValue(QueryText, writer, field.Alias.TokenStart, field.Alias.TokenLength,
-                            field.Alias.EscapeChars);
-                    }
-                    writer.WriteEndObject();
-                }
-                
-                writer.WriteEndArray();
+                WriteSelectOrWith(writer, Select, "Select");
+            }
+            if (With != null)
+            {
+                WriteSelectOrWith(writer, With, "With");
             }
             writer.WritePropertyName("From");
             writer.WriteStartObject();
@@ -124,6 +129,12 @@ namespace QueryParser
             {
                 writer.WritePropertyName("Filter");
                 From.Filter.ToJsonAst(QueryText, writer);
+            }
+            if (From.Alias != null)
+            {
+                writer.WritePropertyName("Alias");
+                QueryExpression.WriteValue(QueryText, writer, From.Alias.TokenStart, From.Alias.TokenLength,
+                    From.Alias.EscapeChars);
             }
             writer.WriteEndObject();
 
@@ -160,6 +171,28 @@ namespace QueryParser
                 writer.WriteEndArray();
             }
             writer.WriteEndObject();
+        }
+
+        private void WriteSelectOrWith(JsonWriter writer, List<(QueryExpression Expression, FieldToken Alias)> clauseItems, string clause)
+        {
+            writer.WritePropertyName(clause);
+            writer.WriteStartArray();
+
+            foreach (var field in clauseItems)
+            {
+                writer.WriteStartObject();
+                writer.WritePropertyName("Expression");
+                field.Expression.ToJsonAst(QueryText, writer);
+                if (field.Alias != null)
+                {
+                    writer.WritePropertyName("Alias");
+                    QueryExpression.WriteValue(QueryText, writer, field.Alias.TokenStart, field.Alias.TokenLength,
+                        field.Alias.EscapeChars);
+                }
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
         }
     }
 }

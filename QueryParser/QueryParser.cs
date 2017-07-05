@@ -33,7 +33,10 @@ namespace QueryParser
                 QueryText = Scanner.Input
             };
             if (Scanner.TryScan("SELECT"))
-                q.Select = SelectClause();
+                q.Select = SelectOrWithClause("SELECT");
+
+            if (Scanner.TryScan("WITH"))
+                q.With= SelectOrWithClause("WITH");
 
             q.From = FromClause();
 
@@ -92,21 +95,21 @@ namespace QueryParser
             return orderBy;
         }
 
-        private List<(QueryExpression, FieldToken)> SelectClause()
+        private List<(QueryExpression, FieldToken)> SelectOrWithClause(string clause)
         {
             var select = new List<(QueryExpression Expr, FieldToken Id)>();
 
             do
             {
                 if (Field(out var field) == false)
-                    ThrowParseException("Unable to get field for SELECT");
+                    ThrowParseException("Unable to get field for " + clause);
 
                 QueryExpression expr;
 
                 if (Scanner.TryScan('('))
                 {
                     if (Method(field, op: out expr) == false)
-                        ThrowParseException("Expected method call");
+                        ThrowParseException("Expected method call in " + clause);
                 }
                 else
                 {
@@ -127,12 +130,14 @@ namespace QueryParser
             return @select;
         }
 
-        private (FieldToken From, QueryExpression Filter, bool Index) FromClause()
+        private (FieldToken From, FieldToken Alias, QueryExpression Filter, bool Index) FromClause()
         {
             if (Scanner.TryScan("FROM") == false)
                 ThrowParseException("Expected FROM clause");
 
             FieldToken field;
+            QueryExpression filter = null;
+            bool index = false;
             if (Scanner.TryScan('(')) // FROM ( Collection, filter )
             {
                 if (!Scanner.Identifier() && !Scanner.String())
@@ -148,16 +153,13 @@ namespace QueryParser
                 if (Scanner.TryScan(',') == false)
                     ThrowParseException("Expected COMMA in filtered FORM clause after source");
 
-                if (Expression(out var filter) == false)
+                if (Expression(out filter) == false)
                     ThrowParseException("Expected filter in filtered FORM clause");
 
                 if (Scanner.TryScan(')') == false)
                     ThrowParseException("Expected closing parenthesis in filtered FORM clause after filter");
-
-                return (field, filter, false);
             }
-
-            if (Scanner.TryScan("INDEX"))
+            else if (Scanner.TryScan("INDEX"))
             {
                 if (!Scanner.Identifier() && !Scanner.String())
                     ThrowParseException("Expected FROM INDEX source");
@@ -169,20 +171,37 @@ namespace QueryParser
                     EscapeChars = Scanner.EscapeChars
                 };
 
-                return (field, null, false);
+                index = true;
+            }
+            else
+            {
+                if (!Scanner.Identifier() && !Scanner.String())
+                    ThrowParseException("Expected FROM source");
+                
+                field = new FieldToken
+                {
+                    TokenLength = Scanner.TokenLength,
+                    TokenStart = Scanner.TokenStart,
+                    EscapeChars = Scanner.EscapeChars
+                };
             }
 
-            if (!Scanner.Identifier() && !Scanner.String())
-                ThrowParseException("Expected FROM source");
-
-            field = new FieldToken
+            FieldToken alias = null;
+            if (Scanner.TryScan("AS"))
             {
-                TokenLength = Scanner.TokenLength,
-                TokenStart = Scanner.TokenStart,
-                EscapeChars = Scanner.EscapeChars
-            };
+                if (!Scanner.Identifier() && !Scanner.String())
+                    ThrowParseException("Expected ALIAS after AS in FROM");
 
-            return (field, null, false);
+                alias = new FieldToken
+                {
+                    TokenLength = Scanner.TokenLength,
+                    TokenStart = Scanner.TokenStart,
+                    EscapeChars = Scanner.EscapeChars
+                };
+
+            }
+
+            return (field, alias, filter, index);
         }
 
         private bool Alias(out FieldToken alias)
